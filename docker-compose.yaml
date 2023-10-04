@@ -1,0 +1,13 @@
+version: '3'
+services:
+  spark_jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4040:4040"
+      - "8888:8888"
+    volumes:
+      - ./work:/home/jovyan/work
+    tty: true
+    restart: always
