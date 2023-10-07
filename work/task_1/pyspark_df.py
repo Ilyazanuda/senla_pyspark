@@ -9,8 +9,8 @@ import argparse
 
 
 def get_args():
-    parser = argparse.ArgumentParser(description="Shows movies",
-                                     prog="get_movies")
+    parser = argparse.ArgumentParser(description="Data mart",
+                                     prog="pyspark_df")
     parser.add_argument('-pd', '--part_date',
                         type=str,
                         metavar='<yyyy-mm-dd>',
