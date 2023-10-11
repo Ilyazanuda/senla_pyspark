@@ -1,4 +1,4 @@
-from pyspark.sql.functions import split, explode, regexp_replace
+from pyspark.sql.functions import split, explode, regexp_replace, sum
 from pyspark.sql.types import StringType
 from pyspark.sql import SparkSession
 import zipfile
@@ -25,12 +25,24 @@ def get_transformed_dataframe(text_df):
 
 
 def show_result(word_count_df, total_words):
-    print(f"total words: {total_words}\nword_counts:")
+    print(f"total words: {total_words.collect()[0][0]}\nword_counts:")
     word_count_df.show()
 
 
+def save_result(result_df, total, output_path):
+    result_df.write \
+             .mode('overwrite') \
+             .option('header', 'True') \
+             .option('delimiter', ',') \
+             .csv(output_path)
+
+    total.write.csv(output_path + '//total_words', header=True)
+    
+
 def main():
     archive_path = '../data/archive.zip'
+    output_path = 'result_task_1'
+    
     spark = SparkSession.builder.appName("WordCount").getOrCreate()
     spark.sparkContext.setLogLevel("ERROR")
     
@@ -38,9 +50,10 @@ def main():
     text_df = spark.createDataFrame([text_string], StringType())
 
     word_count_df = get_transformed_dataframe(text_df)
-    total_words = word_count_df.count()
+    total_words = word_count_df.select(sum("count").alias("total_words"))
 
     show_result(word_count_df, total_words)
+    save_result(word_count_df, total_words, output_path)
 
     spark.stop()
     

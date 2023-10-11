@@ -1,4 +1,4 @@
-from pyspark.sql.functions import split, explode, concat_ws, regexp_replace, lead, col, monotonically_increasing_id
+from pyspark.sql.functions import split, explode, concat_ws, regexp_replace, lead, col, monotonically_increasing_id, sum
 from pyspark.sql import Window
 from pyspark.sql.types import StringType
 from pyspark.sql import SparkSession
@@ -33,12 +33,24 @@ def get_transformed_dataframe(text_df):
 
 
 def show_result(bigrams_count_df, total_bigrams):
-    print(f"total word pairs: {total_bigrams}\nword_pair_counts:")
+    print(f"total word pairs: {total_bigrams.collect()[0][0]}\nword_pair_counts:")
     bigrams_count_df.show()
+
+
+def save_result(result_df, total, output_path):
+    result_df.write \
+             .mode('overwrite') \
+             .option('header', 'True') \
+             .option('delimiter', ',') \
+             .csv(output_path)
+
+    total.write.csv(output_path + '//total_bigrams', header=True)
 
 
 def main():
     archive_path = '../data/archive.zip'
+    output_path = 'result_task_2'
+    
     spark = SparkSession.builder.appName("BigramCount").getOrCreate()
     spark.sparkContext.setLogLevel("ERROR")
     
@@ -46,9 +58,10 @@ def main():
     text_df = spark.createDataFrame([text_string], StringType())
 
     bigrams_count_df = get_transformed_dataframe(text_df)
-    total_bigrams = bigrams_count_df.count()
+    total_bigrams = bigrams_count_df.select(sum("count").alias("total"))
 
     show_result(bigrams_count_df, total_bigrams)
+    save_result(bigrams_count_df, total_bigrams, output_path)
 
     spark.stop()
 
