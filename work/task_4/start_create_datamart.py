@@ -21,21 +21,18 @@ def get_args():
                         metavar='<currency>',
                         default='USD',
                         help='currency: USD, BYN, PLN, EUR')
-
-    parser.add_argument('-cpd', '--check_prev_dates',
-                        action='store_true',
-                        default=False,
-                        help='argument to check previous months data mart')
     
     parser.add_argument('-ll', '--loyality_level',
                         type=int,
+                        metavar='<number>',
                         default=1,
                         help='number of months for loyality calculations')
 
     args = parser.parse_args()
     
     return (datetime.strptime(args.part_date, '%Y-%m-%d'),
-            args.dm_currency.upper() if args.dm_currency and args.dm_currency.upper() in ('USD', 'PLN', 'BYN', 'EUR') else 'USD',
+            args.dm_currency.upper() if args.dm_currency and args.dm_currency.upper() in ('USD', 'PLN', 'BYN', 'EUR')
+            else 'USD',
             args.loyality_level)
 
 
@@ -98,7 +95,6 @@ def main(part_date, dm_currency, loyality_level):
         part_date, need_to_create = check_prev_date_mart(part_dates[ll_num], output_path, dm_currency, ll_num + 1)
         part_dates[ll_num] = (part_date, need_to_create, ll_num + 1)
 
-    print(part_dates)
     create_datamart.process_data_mart(part_dates, dm_currency)
     
 

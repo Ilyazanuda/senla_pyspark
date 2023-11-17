@@ -64,7 +64,7 @@ def get_transformed_transactions(transactions_train_raw, articles_raw, years, mo
                                  .select('row_num', 't_dat', 'customer_id', 'article_id', 'price', 'product_group_name')
 
 
-def get_searched_date_transactions(transactions_train_raw, articles_raw, part_date, dm_currency):
+def get_searched_date_transactions(transactions_train_raw, part_date):
     return transactions_train_raw.filter((func.year(col('t_dat')) == part_date.year) &
                                          (func.month(col('t_dat')) == part_date.month))
 
@@ -115,8 +115,6 @@ def save_output(most_exp_articles_df, number_of_product_groups_df, grouped_trans
     else:
         result_df = result_df.join(prev_df, 'customer_id', 'left')
 
-    result_df.select('customer_id', 'customer_loyality').show(truncate=False)
-
     result_df = result_df.withColumn('customer_group_by_age', when(col('age') < 23, 'S')
                                      .when(col('age') > 59, 'R')
                                      .otherwise('A')) \
@@ -126,7 +124,10 @@ def save_output(most_exp_articles_df, number_of_product_groups_df, grouped_trans
                                         ).otherwise(0)) \
                          .withColumn('part_date', func.lit(datetime.strftime(part_date, '%Y-%m'))) \
                          .withColumn('dm_currency', lit(dm_currency)) \
-                         .withColumn('loyal_months_nr', lit(loyality_level)) \
+                         .withColumn('loyal_months_nr', when(
+                                        col('customer_loyality') == 1,
+                                        loyality_level
+                                        ).otherwise(0)) \
                          .withColumn('offer', when(
                                         (col('customer_loyality') == 1) &
                                         (col('club_member_status') == 'ACTIVE') &
@@ -137,8 +138,6 @@ def save_output(most_exp_articles_df, number_of_product_groups_df, grouped_trans
                                  'transaction_amount', 'dm_currency', 'most_exp_article_id',
                                  'number_of_articles', 'number_of_product_groups',
                                  'most_freq_product_group_name', 'loyal_months_nr', 'customer_loyality', 'offer')
-
-    result_df.show(truncate=False)
 
     result_df.coalesce(1) \
              .write \
@@ -164,8 +163,6 @@ def process_data_mart(part_dates, dm_currency):
     customers_raw = spark.read.csv(customers_path, header=True)
     transactions_train_raw = spark.read.csv(transactions_train_path, header=True)
     
-    transactions_train_raw.show()
-
     if type(part_dates) != list:
         part_dates = [(part_dates, True, 1), ]
 
@@ -182,22 +179,16 @@ def process_data_mart(part_dates, dm_currency):
         if loyality_level != 1:
             prev_date, _, prev_loyality_level = part_dates[num - 1]
             prev_df = get_prev_data_mart(output_path, prev_date, dm_currency, prev_loyality_level, spark)
-            prev_df.show()
         else:
             prev_df = False
         
-        transactions_train_df = get_searched_date_transactions(transactions_train_transformed_df,
-                                                               articles_raw, part_date, dm_currency)
-        transactions_train_df.show(truncate=False)
+        transactions_train_df = get_searched_date_transactions(transactions_train_transformed_df, part_date)
 
         most_exp_articles_df = get_most_exp_articles(transactions_train_df)
-        most_exp_articles_df.show(truncate=False)
 
         number_and_most_freq_product_groups_df = get_grouped_product_groups(transactions_train_df)
-        number_and_most_freq_product_groups_df.show(truncate=False)
 
         grouped_transactions_df = grouped_transactions_by_customer(transactions_train_df)
-        grouped_transactions_df.show(truncate=False)
 
         save_output(most_exp_articles_df, number_and_most_freq_product_groups_df, grouped_transactions_df,
                     customers_raw, part_date, output_path, dm_currency, loyality_level, prev_df)
